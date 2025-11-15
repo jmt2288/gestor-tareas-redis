@@ -28,11 +28,11 @@ echo -e "\n"
 echo -e "${YELLOW}[TEST 2]${NC} Registrar usuario (POST /api/auth/registro)"
 REGISTER_RESPONSE=$(curl -s -X POST "$API_URL/api/auth/registro" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"email\": \"$EMAIL\",
-    \"nombre\": \"$NOMBRE\",
-    \"contraseña\": \"$PASSWORD\"
-  }")
+  --data-raw '{
+    "email": "'"$EMAIL"'",
+    "nombre": "'"$NOMBRE"'",
+    "contraseña": "'"$PASSWORD"'"
+  }')
 echo "$REGISTER_RESPONSE" | jq .
 echo -e "\n"
 
