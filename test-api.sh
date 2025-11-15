@@ -24,7 +24,7 @@ echo -e "${YELLOW}[TEST 1]${NC} Obtener documentación (GET /)"
 curl -s "$API_URL/" | jq .
 echo -e "\n"
 
-# Test 2: Registro de usuario
+# Test 2: Registro de usuariosss
 echo -e "${YELLOW}[TEST 2]${NC} Registrar usuario (POST /api/auth/registro)"
 REGISTER_RESPONSE=$(curl -s -X POST "$API_URL/api/auth/registro" \
   -H "Content-Type: application/json" \
