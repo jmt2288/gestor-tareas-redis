@@ -56,11 +56,11 @@ Sorted Sets:
    
   Crear archivo .env
 
-   ```bash
-   REDIS_URL\=redis://password@endpoint:puerto
-   JWT_SECRET\=your_jwt_secret_here
+   ```
+   REDIS_URL=redis://password@endpoint:puerto
+   JWT_SECRET=your_jwt_secret_here
    # Puerto en el que se monta el servidor
-   PORT\=3000
+   PORT=3000
    ```
 
 4. **Iniciar servidor**
