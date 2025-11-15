@@ -49,13 +49,18 @@ Sorted Sets:
 
 2. **Instalar dependencias**
    ```bash
-   npm install
+   npm install bcrypt cors dotenv express jsonwebtoken redis
    ```
 
 3. **Configurar variables de entorno**
+   
+  Crear archivo .env
+
    ```bash
-   cp .env.example .env
-   # Editar .env con tus credenciales de Redis
+   REDIS_URL\=redis://password@endpoint:puerto
+   JWT_SECRET\=your_jwt_secret_here
+   # Puerto en el que se monta el servidor
+   PORT\=3000
    ```
 
 4. **Iniciar servidor**
