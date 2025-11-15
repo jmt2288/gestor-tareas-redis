@@ -17,9 +17,9 @@ Una aplicación Node.js/Express de gestión de tareas con autenticación JWT y a
 - ✅ Marca de completado
 
 ### ⚡ Sorted Sets (Ordenación Avanzada)
-- ✅ Obtener tareas ordenadas por **fecha de vencimiento** (próximas primero) - O(log N)
-- ✅ Obtener tareas ordenadas por **prioridad** (mayor primero) - O(log N)
-- ✅ Limpiar automáticamente tareas vencidas - O(log N)
+- ✅ Obtener tareas ordenadas por **fecha de vencimiento** (próximas primero)
+- ✅ Obtener tareas ordenadas por **prioridad** (mayor primero)
+- ✅ Limpiar automáticamente tareas vencidas
 - ✅ Sin ordenación en Node.js, todo en Redis
 
 ### 🗄️ Almacenamiento Redis
@@ -179,29 +179,6 @@ curl -X GET "http://localhost:3000/api/tareas/ordenadas/prioridad?limit=5" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### Con Script
-```bash
-chmod +x test-api.sh
-./test-api.sh
-```
-
-## 📊 Ventajas de Sorted Sets
-
-### Sin Sorted Sets (Método tradicional)
-```
-1. HGETALL tareas:{email}           # Retorna 1000 tareas
-2. Ordenar 1000 en Node.js          # O(n log n)
-3. Tomar primeras 10                # O(10)
-```
-
-### Con Sorted Sets ⚡
-```
-1. ZRANGE tareas:{email}:by_due_date 0 9  # Retorna 10 en O(log n)
-2. HGET para obtener detalles       # 10 operaciones
-```
-
-**Resultado:** 100x más rápido con miles de tareas
-
 ## 🔒 Seguridad
 
 - ✅ Contraseñas hasheadas con bcrypt (10 rounds)
@@ -209,22 +186,6 @@ chmod +x test-api.sh
 - ✅ Aislamiento de datos por usuario
 - ✅ Validación de entrada en todos los endpoints
 - ✅ CORS configurado
-
-## 🛠️ Desarrollo
-
-```bash
-# Ver documentación de API
-cat API_DOCUMENTATION.md
-
-# Ver guía de Sorted Sets
-cat SORTED_SETS_GUIDE.md
-
-# Conectar a Redis CLI (para debugging)
-redis-cli
-> KEYS *
-> HGETALL tareas:usuario@example.com
-> ZRANGE tareas:usuario@example.com:by_due_date 0 -1 WITHSCORES
-```
 
 ## 📦 Dependencias
 
@@ -251,10 +212,7 @@ redis-cli
 .
 ├── server.js                    # Archivo principal
 ├── package.json                 # Dependencias
-├── .env.example                 # Variables de entorno (ejemplo)
-├── API_DOCUMENTATION.md         # Documentación completa de API
-├── SORTED_SETS_GUIDE.md        # Guía detallada de Sorted Sets
-├── test-api.sh                  # Script de pruebas
+├── .env                         # Variables de entorno 
 └── README.md                    # Este archivo
 ```
 
@@ -274,11 +232,3 @@ MIT
 ## 👤 Autor
 
 Javier M. (jmt2288)
-
-## 💬 Soporte
-
-Para preguntas o problemas, abre un issue en GitHub.
-
----
-
-**Happy Task Managing! 🚀**
