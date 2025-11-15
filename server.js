@@ -172,7 +172,7 @@ app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║ Servidor ejecutándose                  ║
-║ http://localhost:${PORT}               ║
+║ http://localhost:${PORT}                  ║
 ╚════════════════════════════════════════╝
 `);
 });
