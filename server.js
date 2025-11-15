@@ -170,7 +170,7 @@ app.post('/api/tareas', verificarToken, async (req, res) => {
       return res.status(500).json({ error: 'No conectado a la base de datos' });
     }
 
-    const { titulo, descripcion } = req.body;
+    const { titulo, descripcion, fechaVencimiento, prioridad } = req.body;
     const email = req.usuario.email;
 
     // Validar que exista el título
@@ -178,9 +178,23 @@ app.post('/api/tareas', verificarToken, async (req, res) => {
       return res.status(400).json({ error: 'El título es obligatorio' });
     }
 
+    // Validar prioridad (1-5, siendo 5 la máxima)
+    const priorityValue = prioridad || 3;
+    if (priorityValue < 1 || priorityValue > 5) {
+      return res.status(400).json({ error: 'La prioridad debe estar entre 1 y 5' });
+    }
+
     // Crear un ID único para la tarea
     const id = Date.now().toString();
     const clave = `tareas:${email}`;
+
+    // Convertir fechaVencimiento a timestamp (si no existe, usar fecha actual + 7 días)
+    let dueDateTimestamp = 0;
+    if (fechaVencimiento) {
+      dueDateTimestamp = new Date(fechaVencimiento).getTime();
+    } else {
+      dueDateTimestamp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime();
+    }
 
     // Crear objeto tarea
     const tarea = {
@@ -188,11 +202,26 @@ app.post('/api/tareas', verificarToken, async (req, res) => {
       titulo,
       descripcion: descripcion || '',
       completada: false,
+      prioridad: priorityValue,
+      fechaVencimiento: new Date(dueDateTimestamp).toISOString(),
       fechaCreacion: new Date().toISOString()
     };
 
-    // Guardar en Redis
+    // Guardar en Redis Hash
     await client.hSet(clave, id, JSON.stringify(tarea));
+
+    // Guardar en Sorted Sets para ordenación rápida
+    // Por fecha de vencimiento
+    await client.zAdd(`${clave}:by_due_date`, {
+      score: dueDateTimestamp,
+      value: id
+    });
+
+    // Por prioridad (usar timestamp negativo para orden inverso: mayor prioridad primero)
+    await client.zAdd(`${clave}:by_priority`, {
+      score: -priorityValue,
+      value: id
+    });
 
     res.status(201).json({
       mensaje: 'Tarea creada exitosamente',
@@ -211,7 +240,7 @@ app.put('/api/tareas/:id', verificarToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { titulo, descripcion, completada } = req.body;
+    const { titulo, descripcion, completada, fechaVencimiento, prioridad } = req.body;
     const email = req.usuario.email;
     const clave = `tareas:${email}`;
 
@@ -229,7 +258,33 @@ app.put('/api/tareas/:id', verificarToken, async (req, res) => {
     if (descripcion !== undefined) tarea.descripcion = descripcion;
     if (completada !== undefined) tarea.completada = completada;
 
-    // Guardar los cambios
+    // Si se actualiza la fecha de vencimiento
+    if (fechaVencimiento !== undefined) {
+      const newDueDateTimestamp = new Date(fechaVencimiento).getTime();
+      tarea.fechaVencimiento = new Date(newDueDateTimestamp).toISOString();
+      
+      // Actualizar el Sorted Set de fecha de vencimiento
+      await client.zAdd(`${clave}:by_due_date`, {
+        score: newDueDateTimestamp,
+        value: id
+      });
+    }
+
+    // Si se actualiza la prioridad
+    if (prioridad !== undefined) {
+      if (prioridad < 1 || prioridad > 5) {
+        return res.status(400).json({ error: 'La prioridad debe estar entre 1 y 5' });
+      }
+      tarea.prioridad = prioridad;
+      
+      // Actualizar el Sorted Set de prioridad
+      await client.zAdd(`${clave}:by_priority`, {
+        score: -prioridad,
+        value: id
+      });
+    }
+
+    // Guardar los cambios en el Hash
     await client.hSet(clave, id, JSON.stringify(tarea));
 
     res.json({
@@ -259,8 +314,12 @@ app.delete('/api/tareas/:id', verificarToken, async (req, res) => {
       return res.status(404).json({ error: 'Tarea no encontrada' });
     }
 
-    // Eliminar
+    // Eliminar del Hash
     await client.hDel(clave, id);
+
+    // Eliminar de los Sorted Sets
+    await client.zRem(`${clave}:by_due_date`, id);
+    await client.zRem(`${clave}:by_priority`, id);
 
     res.json({
       mensaje: 'Tarea eliminada exitosamente'
@@ -270,18 +329,147 @@ app.delete('/api/tareas/:id', verificarToken, async (req, res) => {
   }
 });
 
-// ENDPOINT 5: Endpoint de prueba
+// ENDPOINT 5: Obtener tareas ordenadas por fecha de vencimiento (GET)
+app.get('/api/tareas/ordenadas/vencimiento', verificarToken, async (req, res) => {
+  try {
+    if (!redisConnected) {
+      return res.status(500).json({ error: 'No conectado a la base de datos' });
+    }
+
+    const email = req.usuario.email;
+    const clave = `tareas:${email}`;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Obtener los IDs de tareas ordenadas por fecha de vencimiento (más próximas primero)
+    const taskIds = await client.zRange(`${clave}:by_due_date`, 0, limit - 1);
+
+    // Obtener los detalles completos de las tareas
+    const tareas = [];
+    for (const id of taskIds) {
+      const tareaJSON = await client.hGet(clave, id);
+      if (tareaJSON) {
+        tareas.push(JSON.parse(tareaJSON));
+      }
+    }
+
+    res.json({
+      mensaje: 'Tareas ordenadas por fecha de vencimiento',
+      cantidad: tareas.length,
+      tareas
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ENDPOINT 6: Obtener tareas ordenadas por prioridad (GET)
+app.get('/api/tareas/ordenadas/prioridad', verificarToken, async (req, res) => {
+  try {
+    if (!redisConnected) {
+      return res.status(500).json({ error: 'No conectado a la base de datos' });
+    }
+
+    const email = req.usuario.email;
+    const clave = `tareas:${email}`;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Obtener los IDs de tareas ordenadas por prioridad (mayor prioridad primero)
+    const taskIds = await client.zRange(`${clave}:by_priority`, 0, limit - 1);
+
+    // Obtener los detalles completos de las tareas
+    const tareas = [];
+    for (const id of taskIds) {
+      const tareaJSON = await client.hGet(clave, id);
+      if (tareaJSON) {
+        tareas.push(JSON.parse(tareaJSON));
+      }
+    }
+
+    res.json({
+      mensaje: 'Tareas ordenadas por prioridad',
+      cantidad: tareas.length,
+      tareas
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ENDPOINT 7: Limpiar tareas vencidas (DELETE)
+app.delete('/api/tareas/limpiar/vencidas', verificarToken, async (req, res) => {
+  try {
+    if (!redisConnected) {
+      return res.status(500).json({ error: 'No conectado a la base de datos' });
+    }
+
+    const email = req.usuario.email;
+    const clave = `tareas:${email}`;
+    const ahora = Date.now();
+
+    // Obtener todas las tareas vencidas (con score menor a ahora)
+    const tareasVencidas = await client.zRange(`${clave}:by_due_date`, 0, -1, {
+      byScore: true,
+      rev: false,
+      limit: {
+        offset: 0,
+        count: -1
+      }
+    });
+
+    // Obtener las tareas que tienen fecha de vencimiento menor a ahora
+    const tareasABorrar = await client.zRangeByScore(`${clave}:by_due_date`, '-inf', ahora);
+
+    if (tareasABorrar.length === 0) {
+      return res.json({
+        mensaje: 'No hay tareas vencidas para limpiar',
+        tareasEliminadas: 0
+      });
+    }
+
+    // Eliminar del Hash
+    for (const id of tareasABorrar) {
+      await client.hDel(clave, id);
+    }
+
+    // Limpiar del Sorted Set de fecha de vencimiento
+    await client.zRemRangeByScore(`${clave}:by_due_date`, '-inf', ahora);
+
+    // Limpiar del Sorted Set de prioridad (obtener los IDs primero)
+    for (const id of tareasABorrar) {
+      await client.zRem(`${clave}:by_priority`, id);
+    }
+
+    res.json({
+      mensaje: 'Tareas vencidas eliminadas exitosamente',
+      tareasEliminadas: tareasABorrar.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ENDPOINT raíz: Endpoint de prueba
 app.get('/', (req, res) => {
   res.json({
     mensaje: '¡Bienvenido a tu Gestor de Tareas!',
     estado: redisConnected ? '✓ Conectado a la base de datos' : '✗ Sin conexión',
     endpoints: {
-      registro: 'POST /api/auth/registro',
-      login: 'POST /api/auth/login',
-      ver_tareas: 'GET /api/tareas (requiere token)',
-      crear_tarea: 'POST /api/tareas (requiere token)',
-      actualizar_tarea: 'PUT /api/tareas/:id (requiere token)',
-      eliminar_tarea: 'DELETE /api/tareas/:id (requiere token)'
+      autenticacion: {
+        registro: 'POST /api/auth/registro',
+        login: 'POST /api/auth/login'
+      },
+      tareas_basico: {
+        obtener_todas: 'GET /api/tareas',
+        crear_tarea: 'POST /api/tareas',
+        actualizar_tarea: 'PUT /api/tareas/:id',
+        eliminar_tarea: 'DELETE /api/tareas/:id'
+      },
+      tareas_avanzado: {
+        obtener_por_vencimiento: 'GET /api/tareas/ordenadas/vencimiento?limit=10',
+        obtener_por_prioridad: 'GET /api/tareas/ordenadas/prioridad?limit=10',
+        limpiar_vencidas: 'DELETE /api/tareas/limpiar/vencidas'
+      },
+      nota: 'Todos los endpoints de tareas requieren token JWT en el header: Authorization: Bearer <token>'
     }
   });
 });

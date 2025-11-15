@@ -1,0 +1,300 @@
+⚡ QUICK START - Gestor de Tareas con Redis
+═════════════════════════════════════════════════════════════════
+
+🚀 5 MINUTOS PARA EMPEZAR
+
+Paso 1: Verificar que Redis está corriendo (2 minutos)
+────────────────────────────────────────────────────
+
+# Opción A: Redis Local
+$ redis-server
+# O
+$ redis-cli ping
+# Debe retornar: PONG
+
+# Opción B: RedisCloud
+# 1. Ir a https://redis.com/try-free/
+# 2. Crear cuenta gratuita
+# 3. Crear base de datos
+# 4. Copiar URL: redis://default:xxxxx@host:port
+
+
+Paso 2: Configurar variables de entorno (1 minuto)
+──────────────────────────────────────────────────
+
+$ cp .env.example .env
+
+# Editar .env:
+REDIS_URL=redis://localhost:6379    # o tu URL de RedisCloud
+JWT_SECRET=tu_secreto_aqui
+PORT=3000
+
+
+Paso 3: Instalar dependencias (1 minuto)
+────────────────────────────────────────
+
+$ npm install
+
+
+Paso 4: Iniciar servidor (1 minuto)
+──────────────────────────────────
+
+$ npm start
+
+Verás:
+╔════════════════════════════════════════╗
+║ Servidor ejecutándose                  ║
+║ http://localhost:3000                  ║
+╚════════════════════════════════════════╝
+
+
+🧪 PRUEBAS RÁPIDAS (en otra terminal)
+═════════════════════════════════════
+
+Opción A: Tests automatizados
+$ bash test-api.sh
+
+Opción B: Pruebas manuales con cURL
+
+1️⃣ Obtener documentación
+$ curl http://localhost:3000
+
+2️⃣ Registrarse
+$ curl -X POST http://localhost:3000/api/auth/registro \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "nombre": "Test User",
+    "contraseña": "password123"
+  }'
+
+3️⃣ Login (copiar el token retornado)
+$ TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "contraseña": "password123"
+  }' | jq -r '.token')
+
+$ echo $TOKEN
+
+4️⃣ Crear tareas
+$ curl -X POST http://localhost:3000/api/tareas \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "titulo": "Mi primera tarea",
+    "prioridad": 5,
+    "fechaVencimiento": "2024-01-10"
+  }'
+
+5️⃣ Ver tareas ordenadas por PRIORIDAD ⭐
+$ curl -X GET "http://localhost:3000/api/tareas/ordenadas/prioridad?limit=5" \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+6️⃣ Ver tareas ordenadas por FECHA 📅
+$ curl -X GET "http://localhost:3000/api/tareas/ordenadas/vencimiento?limit=5" \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+7️⃣ Limpiar tareas vencidas
+$ curl -X DELETE http://localhost:3000/api/tareas/limpiar/vencidas \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+
+📚 DOCUMENTACIÓN COMPLETA
+═════════════════════════
+
+README.md
+├─ Descripción general
+├─ Características
+├─ Instalación
+└─ Ejemplos básicos
+
+API_DOCUMENTATION.md
+├─ Todos los endpoints
+├─ Parámetros
+├─ Ejemplos de respuesta
+├─ Casos de uso prácticos
+└─ Uso con cURL
+
+SORTED_SETS_GUIDE.md
+├─ Explicación de Sorted Sets
+├─ Estructura de datos
+├─ Flujo de operaciones
+├─ Comandos Redis
+├─ Performance comparativa
+└─ Debugging
+
+EJEMPLOS_AVANZADOS.js
+├─ 10 secciones de código
+├─ Dashboard en tiempo real
+├─ Búsqueda y filtrado
+├─ Exportar datos
+└─ Utilidades prácticas
+
+
+🎯 CASOS DE USO
+═══════════════
+
+Caso 1: Dashboard de tareas pendientes
+──────────────────────────────────────
+$ curl "http://localhost:3000/api/tareas/ordenadas/vencimiento?limit=5" \
+  -H "Authorization: Bearer $TOKEN" | jq '.tareas[] | {titulo, fechaVencimiento}'
+
+
+Caso 2: Tareas más importantes
+──────────────────────────────
+$ curl "http://localhost:3000/api/tareas/ordenadas/prioridad?limit=10" \
+  -H "Authorization: Bearer $TOKEN" | jq '.tareas[] | {titulo, prioridad}'
+
+
+Caso 3: Limpiar automáticamente vencidas
+────────────────────────────────────────
+# Ejecutar una vez al día:
+$ curl -X DELETE http://localhost:3000/api/tareas/limpiar/vencidas \
+  -H "Authorization: Bearer $TOKEN"
+
+
+🔧 DEBUGGING
+════════════
+
+Ver datos en Redis
+$ redis-cli
+> KEYS *                          # Ver todas las claves
+> HGETALL usuarios               # Ver usuarios
+> HGETALL tareas:test@example.com # Ver tareas de usuario
+> ZRANGE tareas:test@example.com:by_priority 0 -1 WITHSCORES
+
+Limpiar datos de prueba
+> DEL usuarios tareas:* usuarios:*
+
+Monitorear en tiempo real
+> MONITOR
+# Ejecuta comandos en otra terminal y verás todos aquí
+
+
+💻 STACK TECNOLÓGICO
+═════════════════════
+
+Backend
+├─ Node.js + Express 5
+├─ Redis (Sorted Sets)
+├─ JWT (autenticación)
+├─ bcrypt (seguridad)
+└─ CORS (cross-origin)
+
+Dependencias
+├─ express: 5.1.0
+├─ redis: 5.9.0
+├─ jsonwebtoken: 9.0.2
+├─ bcrypt: 6.0.0
+├─ cors: 2.8.5
+└─ dotenv: 17.2.3
+
+
+⏱️ PERFORMANCE
+═══════════════
+
+Operación                    Sin ZSET    Con ZSET    Mejora
+─────────────────────────────────────────────────────────
+Top 10 de 1000 tareas       O(n log n)   O(log n)    100x
+Agregar tarea               O(1)         O(log n)    igual
+Actualizar prioridad        O(1)         O(log n)    igual
+Limpiar vencidas            O(n)         O(log n)    1000x
+
+Transferencia de datos:
+└─ Sin ZSET: 1000 objetos JSON
+└─ Con ZSET: 10 IDs + 10 objetos
+
+
+🎓 APRENDE MÁS
+════════════════
+
+Sorted Sets de Redis
+─────────────────────
+https://redis.io/docs/data-types/sorted-sets/
+
+JWT en Express
+──────────────
+https://expressjs.com/
+
+Bcrypt
+──────
+https://www.npmjs.com/package/bcrypt
+
+Redis Documentación
+────────────────────
+https://redis.io/docs/
+
+
+❓ TROUBLESHOOTING
+══════════════════
+
+Error: "No conectado a Redis"
+────────────────────────────
+✅ Verifica que Redis está corriendo: redis-cli ping
+✅ Verifica REDIS_URL en .env
+✅ Si usas RedisCloud, copia correctamente la URL
+
+Error: "Token inválido"
+──────────────────────
+✅ Asegúrate de copiar todo el token
+✅ Formato debe ser: Authorization: Bearer {token}
+✅ Verifica que el servidor aún está corriendo
+
+Error: "Tarea no encontrada"
+───────────────────────────
+✅ Verifica el ID de la tarea
+✅ Asegúrate de usar el mismo usuario (token)
+✅ La tarea pudo haber sido eliminada
+
+Error: npm install falla
+────────────────────────
+✅ Node.js v14+ requerido: node --version
+✅ Borra node_modules: rm -rf node_modules
+✅ Intenta de nuevo: npm install
+
+
+🚀 SIGUIENTE: FRONTEND
+════════════════════════
+
+La API está lista, ahora crea un frontend con:
+
+Opción 1: React
+├─ Create React App
+├─ Componentes para login
+├─ Dashboard visual
+└─ Real-time updates
+
+Opción 2: Vue
+├─ Vue 3 + Vite
+├─ Componentes reutilizables
+├─ Pinia para estado
+└─ Tailwind CSS
+
+Opción 3: Svelte
+├─ Más ligero
+├─ Reactividad built-in
+└─ Excelente performance
+
+
+✨ RESUMEN
+══════════
+
+✅ Backend: Configurado y corriendo
+✅ API: 10+ endpoints funcionales
+✅ Base de datos: Redis con Sorted Sets
+✅ Autenticación: JWT
+✅ Documentación: Completa
+
+¡Ahora crea tu frontend y conecta! 🎉
+
+
+💬 PREGUNTAS?
+═════════════
+
+Lee RESUMEN_IMPLEMENTACION.txt para entender la arquitectura
+Lee SORTED_SETS_GUIDE.md para entender cómo funcionan los ZSET
+Lee EJEMPLOS_AVANZADOS.js para ver código en profundidad
+
+¡Happy coding! 🚀
