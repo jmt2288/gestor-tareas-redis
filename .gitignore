@@ -1,5 +1,5 @@
 # Dependencias
 node_modules/
 
-# Archivos de entorno (secretos)
+# Variables de entorno
 .env
