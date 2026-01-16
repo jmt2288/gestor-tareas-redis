@@ -220,20 +220,3 @@ curl -X GET "http://localhost:3000/api/tareas/ordenadas/prioridad?limit=5" \
 ├── .env                         # Variables de entorno 
 └── README.md                    # Este archivo
 ```
-
-## 🤝 Contribuir
-
-Las contribuciones son bienvenidas. Por favor:
-1. Fork el repositorio
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-MIT
-
-## 👤 Autor
-
-Javier M. (jmt2288)
